@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/mdaverde/jsonpath"
 	"github.com/mheers/dex-local-discovery/helpers"
@@ -12,11 +11,9 @@ import (
 )
 
 type Config struct {
-	Port       int      `json:"port"`
-	Upstream   string   `json:"upstream"`
-	ReplaceOld string   `json:"replace_old"`
-	ReplaceNew string   `json:"replace_new"`
-	Endpoints  []string `json:"endpoints"`
+	Port      int               `json:"port"`
+	Upstream  string            `json:"upstream"`
+	Endpoints map[string]string `json:"endpoints"`
 }
 
 type Server struct {
@@ -40,31 +37,22 @@ func (s *Server) Run() error {
 
 	// http handler for openid-configuration
 	http.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
+		helpers.LogHTTPRequest(r)
+
 		// get upstream
 		upstream, err := helpers.GetURL(s.Config.Upstream)
 		if err != nil {
+			logrus.Errorf("Error getting upstream: %s", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		// replace
-		for _, endpointName := range s.Config.Endpoints {
-			// get endpoint
-			endpointValue, err := getEndpoint(upstream, endpointName)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			// replace
-			endpointValue = strings.Replace(endpointValue, s.Config.ReplaceOld, s.Config.ReplaceNew, 1)
-
-			// write
-			upstream, err = setEndpoint(upstream, endpointName, endpointValue)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+		upstream, err = replaceEndpoints(upstream, s.Config.Endpoints)
+		if err != nil {
+			logrus.Errorf("Error replacing endpoints: %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
 		// write response
@@ -74,6 +62,8 @@ func (s *Server) Run() error {
 
 	// http handler for config
 	http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
+		helpers.LogHTTPRequest(r)
+
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(configJSON)
 	})
@@ -87,20 +77,16 @@ func (s *Server) Run() error {
 	return nil
 }
 
-func getEndpoint(input []byte, name string) (string, error) {
-	var payload interface{}
-
-	err := json.Unmarshal([]byte(input), &payload)
-	if err != nil {
-		return "", err
+func replaceEndpoints(upstream []byte, endpoints map[string]string) ([]byte, error) {
+	for endpointName, endpointValue := range endpoints {
+		var err error
+		// write
+		upstream, err = setEndpoint(upstream, endpointName, endpointValue)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	endpoint, err := jsonpath.Get(payload, name)
-	if err != nil {
-		return "", err
-	}
-
-	return endpoint.(string), nil
+	return upstream, nil
 }
 
 func setEndpoint(input []byte, name, value string) ([]byte, error) {

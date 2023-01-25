@@ -1,6 +1,10 @@
 package helpers
 
-import "github.com/sirupsen/logrus"
+import (
+	"net/http"
+
+	"github.com/sirupsen/logrus"
+)
 
 // SetLogLevel sets the log level for logrus by string; possible values are debug, error, fatal, panic, info, trace
 func SetLogLevel(loglevelString string) {
@@ -32,4 +36,8 @@ func SetLogLevel(loglevelString string) {
 		QuoteEmptyFields:          true,
 		EnvironmentOverrideColors: true,
 	})
+}
+
+func LogHTTPRequest(r *http.Request) {
+	logrus.Debugf("Request: %s %s %s", r.Method, r.RequestURI, r.Proto)
 }

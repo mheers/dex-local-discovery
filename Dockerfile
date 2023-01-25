@@ -15,6 +15,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build
 
 FROM alpine
 
+RUN apk add curl
+
 COPY --from=builder /workspace/dex-local-discovery /usr/bin/dex-local-discovery
 
 # Run the binary.
