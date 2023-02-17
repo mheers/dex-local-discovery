@@ -1,4 +1,6 @@
-FROM golang:1.19-alpine as builder
+FROM --platform=$BUILDPLATFORM golang:1.20-alpine as builder
+
+RUN apk add --no-cache bash git
 
 WORKDIR /workspace
 
@@ -11,13 +13,17 @@ RUN go mod download
 
 COPY / /workspace
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
 
-FROM alpine
+RUN [ "$(uname)" = Darwin ] && system=darwin || system=linux; \
+    ./ci/go-build.sh --os ${system} --arch $(echo $TARGETPLATFORM  | cut -d/ -f2)
 
-RUN apk add curl
+FROM --platform=$TARGETPLATFORM alpine
 
-COPY --from=builder /workspace/dex-local-discovery /usr/bin/dex-local-discovery
+RUN apk add --no-cache docker-cli
+
+COPY --from=builder /workspace/goapp /usr/bin/dex-local-discovery
 
 # Run the binary.
 ENTRYPOINT ["/usr/bin/dex-local-discovery"]
