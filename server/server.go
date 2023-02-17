@@ -11,9 +11,10 @@ import (
 )
 
 type Config struct {
-	Port      int               `json:"port"`
-	Upstream  string            `json:"upstream"`
-	Endpoints map[string]string `json:"endpoints"`
+	Port         int               `json:"port"`
+	Upstream     string            `json:"upstream"`
+	UpstreamHost string            `json:"upstream_host"`
+	Endpoints    map[string]string `json:"endpoints"`
 }
 
 type Server struct {
@@ -40,7 +41,7 @@ func (s *Server) Run() error {
 		helpers.LogHTTPRequest(r)
 
 		// get upstream
-		upstream, err := helpers.GetURL(s.Config.Upstream)
+		upstream, err := helpers.GetURL(s.Config.Upstream, s.Config.UpstreamHost)
 		if err != nil {
 			logrus.Errorf("Error getting upstream: %s", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)

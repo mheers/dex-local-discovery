@@ -5,8 +5,16 @@ import (
 	"net/http"
 )
 
-func GetURL(url string) ([]byte, error) {
-	resp, err := http.Get(url)
+func GetURL(url, host string) ([]byte, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if host != "" {
+		req.Host = host
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
